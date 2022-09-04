@@ -25,7 +25,6 @@ part 'tile_layer_options.dart';
 /// https://docs.fleaflet.dev/usage/layers/tile-layer. Some are important to
 /// avoid issues.
 class TileLayer extends StatefulWidget {
-  
   /// Defines the structure to create the URLs for the tiles. `{s}` means one of
   /// the available subdomains (can be omitted) `{z}` zoom level `{x}` and `{y}`
   /// — tile coordinates `{r}` can be used to add "&commat;2x" to the URL to
@@ -167,13 +166,13 @@ class TileLayer extends StatefulWidget {
   /// avoid fade in.
   final Duration? tileFadeInDuration;
 
-  /// Opacity start value when Tile starts fade in (0.0 - 1.0) Takes effect if
-  /// `tileFadeInDuration` is not null
+  /// Opacity start value when Tile starts fade in (0.0 - [TileLayer].opacity)
+  /// Takes effect if `tileFadeInDuration` is not null
   final double tileFadeInStart;
 
   /// Opacity start value when an exists Tile starts fade in with different Url
-  /// (0.0 - 1.0) Takes effect when `tileFadeInDuration` is not null and if
-  /// `overrideTilesWhenUrlChanges` if true
+  /// (0.0 - [TileLayer].opacity) Takes effect when `tileFadeInDuration` is
+  /// not null and if `overrideTilesWhenUrlChanges` if true
   final double tileFadeInStartWhenOverride;
 
   /// `false`: current Tiles will be first dropped and then reload via new url
@@ -277,13 +276,13 @@ class TileLayer extends StatefulWidget {
     this.reset,
     this.tileBounds,
     String userAgentPackageName = 'unknown',
-  }) : updateInterval =
+  })  : updateInterval =
             updateInterval <= Duration.zero ? null : updateInterval,
         tileFadeInDuration =
             tileFadeInDuration <= Duration.zero ? null : tileFadeInDuration,
-        assert(tileFadeInStart >= 0.0 && tileFadeInStart <= 1.0),
+        assert(tileFadeInStart >= 0.0 && tileFadeInStart <= opacity),
         assert(tileFadeInStartWhenOverride >= 0.0 &&
-            tileFadeInStartWhenOverride <= 1.0),
+            tileFadeInStartWhenOverride <= opacity),
         maxZoom =
             wmsOptions == null && retinaMode && maxZoom > 0.0 && !zoomReverse
                 ? maxZoom - 1.0
@@ -317,7 +316,6 @@ class TileLayer extends StatefulWidget {
 }
 
 class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
-
   late Bounds _globalTileRange;
   Tuple2<double, double>? _wrapX;
   Tuple2<double, double>? _wrapY;
@@ -343,7 +341,7 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
       _resetSub = widget.reset?.listen((_) => _resetTiles());
     }
 
-      //TODO fix
+    //TODO fix
     // _initThrottleUpdate();
   }
 
@@ -361,8 +359,7 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
       reloadTiles = true;
     }
 
-    reloadTiles |=
-        !_tileManager.allWithinZoom(widget.minZoom, widget.maxZoom);
+    reloadTiles |= !_tileManager.allWithinZoom(widget.minZoom, widget.maxZoom);
 
     if (oldWidget.updateInterval != widget.updateInterval) {
       _throttleUpdate?.close();
@@ -371,8 +368,8 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
     }
 
     if (!reloadTiles) {
-      final oldUrl = oldWidget.wmsOptions?._encodedBaseUrl ??
-          oldWidget.urlTemplate;
+      final oldUrl =
+          oldWidget.wmsOptions?._encodedBaseUrl ?? oldWidget.urlTemplate;
       final newUrl = widget.wmsOptions?._encodedBaseUrl ?? widget.urlTemplate;
 
       final oldOptions = oldWidget.additionalOptions;
@@ -391,6 +388,12 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
 
     if (reloadTiles) {
       _tileManager.removeAll(widget.evictErrorTileStrategy);
+    }
+
+    if (!reloadTiles && oldWidget.opacity != widget.opacity) {
+      for (final tile in _tileManager.all()) {
+        tile.opacity = widget.opacity;
+      }
     }
   }
 
@@ -486,12 +489,9 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
             tilesToRender,
           );
 
-    return Opacity(
-      opacity: widget.opacity,
-      child: Container(
-        color: widget.backgroundColor,
-        child: tilesLayer,
-      ),
+    return Container(
+      color: widget.backgroundColor,
+      child: tilesLayer,
     );
   }
 
@@ -584,7 +584,6 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
     }
   }
 
-
   Bounds _getTiledPixelBounds(FlutterMapState map, LatLng center) {
     final scale = map.getZoomScale(map.zoom, _tileZoom);
     final pixelCenter = map.project(center, _tileZoom).floor();
@@ -660,6 +659,7 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
         current: true,
         imageProvider:
             widget.tileProvider.getImage(coords.wrap(_wrapX, _wrapY), widget),
+        opacity: widget.opacity,
         tileReady: _tileReady,
       );
 
@@ -695,7 +695,8 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
     return true;
   }
 
-  Bounds _latLngBoundsToPixelBounds(FlutterMapState map, LatLngBounds bounds, double thisZoom) {
+  Bounds _latLngBoundsToPixelBounds(
+      FlutterMapState map, LatLngBounds bounds, double thisZoom) {
     final swPixel = map.project(bounds.southWest!, thisZoom).floor();
     final nePixel = map.project(bounds.northEast!, thisZoom).ceil();
     final pxBounds = Bounds(swPixel, nePixel);
@@ -735,7 +736,7 @@ class _TileLayerState extends State<TileLayer> with TickerProviderStateMixin {
         : widget.tileFadeInStartWhenOverride;
     tile.loaded = DateTime.now();
     if (widget.tileFadeInDuration == null ||
-        fadeInStart == 1.0 ||
+        fadeInStart == widget.opacity ||
         (tile.loadError && null == widget.errorImage)) {
       tile.active = true;
     } else {

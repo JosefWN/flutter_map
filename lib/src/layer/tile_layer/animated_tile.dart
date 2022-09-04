@@ -20,22 +20,31 @@ class AnimatedTile extends StatefulWidget {
 class _AnimatedTileState extends State<AnimatedTile> {
   bool listenerAttached = false;
 
-  @override
-  Widget build(BuildContext context) {
-    final tileWidget = (widget.tile.loadError && widget.errorImage != null)
-        ? Image(
-            image: widget.errorImage!,
-            fit: BoxFit.fill,
-          )
-        : RawImage(
-            image: widget.tile.imageInfo?.image,
-            fit: BoxFit.fill,
-            opacity: widget.tile.animationController);
+  Widget get _tileWidget {
+    if (widget.tile.loadError && widget.errorImage != null) {
+      return Image(
+          image: widget.errorImage!,
+          fit: BoxFit.fill,
+          color: Color.fromRGBO(255, 255, 255, widget.tile.opacity),
+          colorBlendMode: BlendMode.modulate);
+    } else if (widget.tile.animationController == null) {
+      return RawImage(
+          image: widget.tile.imageInfo?.image,
+          fit: BoxFit.fill,
+          color: Color.fromRGBO(255, 255, 255, widget.tile.opacity),
+          colorBlendMode: BlendMode.modulate);
+    }
 
-    return widget.tileBuilder == null
-        ? tileWidget
-        : widget.tileBuilder!(context, tileWidget, widget.tile);
+    return RawImage(
+        image: widget.tile.imageInfo?.image,
+        fit: BoxFit.fill,
+        opacity: widget.tile.animationController);
   }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.tileBuilder?.call(context, _tileWidget, widget.tile) ??
+      _tileWidget;
 
   @override
   void initState() {

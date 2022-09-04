@@ -18,9 +18,14 @@ class Tile {
 
   AnimationController? animationController;
 
-  double get opacity => animationController == null
-      ? (active ? 1.0 : 0.0)
-      : animationController!.value;
+  double _opacity;
+
+  set opacity(double value) {
+    _opacity = value;
+    animationController?.value = value;
+  }
+
+  double get opacity => animationController?.value ?? (active ? _opacity : 0.0);
 
   // callback when tile is ready / error occurred
   // it maybe be null for instance when download aborted
@@ -33,12 +38,13 @@ class Tile {
     required this.coords,
     required this.tilePos,
     required this.imageProvider,
+    required double opacity,
     this.tileReady,
     this.current = false,
     this.active = false,
     this.retain = false,
     this.loadError = false,
-  });
+  }) : _opacity = opacity;
 
   void loadTileImage() {
     loadStarted = DateTime.now();
@@ -83,7 +89,8 @@ class Tile {
     animationController?.removeStatusListener(_onAnimateEnd);
     animationController?.dispose();
 
-    animationController = AnimationController(duration: duration, vsync: vsync)
+    animationController = AnimationController(
+        duration: duration, vsync: vsync, upperBound: _opacity)
       ..addStatusListener(_onAnimateEnd);
 
     animationController!.forward(from: from);
